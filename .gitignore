@@ -1,0 +1,29 @@
+# ---- 编辑器与 IDE ----
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ---- 操作系统 ----
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ---- 临时与备份 ----
+*.tmp
+*.bak
+*.log
+~$*
+.~*
+
+# ---- 本地校验脚本（不入库）----
+_validate.py
+
+# ---- 导出产物 ----
+*.pdf
+*.docx
+*.html
+!templates/**/*.html
+export/
+dist/
