@@ -86,6 +86,19 @@
 | [附录 B 检查清单](appendix/b-checklists.md) | 勘察/部署/上线/巡检四张可打印清单 | — |
 | [附录 C 术语表](appendix/c-glossary.md) | 中英对照，含易混淆项澄清 | — |
 
+### 配套文章
+
+- **《大模型私有化交付：显存估算与压测的三个致命陷阱》**
+  → [docs/article-csdn-3-traps.md](docs/article-csdn-3-traps.md)
+
+  把 [03 章](docs/03-solution-design.md) 的显存估算与
+  [05 章](docs/05-benchmark-tuning.md) 的压测口径抽出来单独讲透，
+  适合现场速查或对外分享：KV Cache 与 GQA 8:1 陷阱、三个并发算例、
+  TTFT 三个口径陷阱、真机压测的曲线判读口诀与**引用边界**。
+
+  > 文中数据来自 [05 章 5.6 实测案例](docs/05-benchmark-tuning.md)，运行环境已在文中逐项标注。
+  > 组内分享或对外引用时**请一并带上环境标注**，不要脱离硬件谈数字。
+
 ---
 
 ## 阅读约定
