@@ -89,15 +89,34 @@
 ### 配套文章
 
 - **《大模型私有化交付：显存估算与压测的三个致命陷阱》**
-  → [docs/article-csdn-3-traps.md](docs/article-csdn-3-traps.md)
+  → CSDN 版：[docs/article-csdn-3-traps.md](docs/article-csdn-3-traps.md)
+  ｜ 掘金版：[docs/article-juejin-3-traps.md](docs/article-juejin-3-traps.md)
 
   把 [03 章](docs/03-solution-design.md) 的显存估算与
   [05 章](docs/05-benchmark-tuning.md) 的压测口径抽出来单独讲透，
-  适合现场速查或对外分享：KV Cache 与 GQA 8:1 陷阱、三个并发算例、
+  适合现场速查或对外分享：KV Cache 与 GQA 分组比陷阱、三个并发算例、
   TTFT 三个口径陷阱、真机压测的曲线判读口诀与**引用边界**。
+
+  掘金版为按该平台规范重排的版本：结论先行、代码块标注语言，
+  并**新增** `config.json` 实读验证的 GQA 分组比对照表与 `scripts/estimate_kv.py` 用法。
 
   > 文中数据来自 [05 章 5.6 实测案例](docs/05-benchmark-tuning.md)，运行环境已在文中逐项标注。
   > 组内分享或对外引用时**请一并带上环境标注**，不要脱离硬件谈数字。
+
+### 配套脚本
+
+| 脚本 | 用途 |
+| --- | --- |
+| [scripts/estimate_kv.py](scripts/estimate_kv.py) | 读模型 `config.json` 算出单 token KV、显存拆分与**可支持并发路数**；不依赖第三方库，`--selftest` 可自检（复现 03 章三个算例） |
+
+```bash
+# 例：Qwen2.5-72B FP16，8 × A100 80G，32K 上下文
+python scripts/estimate_kv.py --config <模型目录>/config.json \
+    --params-b 72.7 --gpu-gb 80 --gpus 8 --overhead-gb 32 --ctx 32768
+# → 单 token KV 320 KiB（按注意力头误算会差 8 倍）；KV Cache 池 398.6 GB；≈ 39 路
+```
+
+> 并发路数一律**向下取整**：容量规划宁可报少，不能报多。
 
 ---
 
