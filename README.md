@@ -1,5 +1,10 @@
 # 大模型私有化交付操作手册
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Chapters](https://img.shields.io/badge/chapters-8-brightgreen.svg)](docs/)
+[![Templates](https://img.shields.io/badge/templates-3-orange.svg)](templates/)
+[![Format](https://img.shields.io/badge/format-Markdown-blue.svg)]()
+
 > **LLM Private Deployment Delivery Handbook**
 > 从环境勘察到验收移交的全流程操作指南 —— 给交付工程师、实施同学、以及要写交付方案的人。
 
