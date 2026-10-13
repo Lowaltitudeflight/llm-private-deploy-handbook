@@ -1,170 +1,164 @@
-# 大模型私有化交付操作手册
+# LLM Private Deployment Delivery Handbook
 
+> An end-to-end operations guide from environment survey to acceptance hand-over — written for delivery engineers, implementation teams, and anyone who has to write a private-deployment proposal.
+
+[![Stars](https://img.shields.io/github/stars/yangchuan665/llm-private-deploy-handbook?style=flat&color=yellow)](https://github.com/yangchuan665/llm-private-deploy-handbook/stargazers)
+[![Forks](https://img.shields.io/github/forks/yangchuan665/llm-private-deploy-handbook?style=flat&color=blue)](https://github.com/yangchuan665/llm-private-deploy-handbook/network/members)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Docs License: CC BY 4.0](https://img.shields.io/badge/docs%20license-CC%20BY%204.0-lightgrey.svg)](LICENSE-docs.md)
 [![Chapters](https://img.shields.io/badge/chapters-8-brightgreen.svg)](docs/)
 [![Templates](https://img.shields.io/badge/templates-3-orange.svg)](templates/)
-[![Format](https://img.shields.io/badge/format-Markdown-blue.svg)]()
 
-> **LLM Private Deployment Delivery Handbook**
-> 从环境勘察到验收移交的全流程操作指南 —— 给交付工程师、实施同学、以及要写交付方案的人。
+**English** ｜ [简体中文](README.zh-CN.md)
 
 | | |
 | --- | --- |
-| **版本** | v1.0 |
-| **更新日期** | 2026-10-09 |
-| **覆盖引擎** | vLLM / SGLang / TGI / TensorRT-LLM / lmdeploy / ollama |
-| **适用规模** | 单机单卡 ~ 多机多卡（含 8 卡整机、双机 16 卡） |
-| **文档形态** | Markdown，可直接作为仓库发布、也可导出 Word |
+| **Version** | v1.0 |
+| **Last updated** | 2026-10-09 |
+| **Engines covered** | vLLM / SGLang / TGI / TensorRT-LLM / lmdeploy / Ollama |
+| **Scale covered** | single node & single GPU up to multi-node multi-GPU (8-GPU servers, dual-node 16-GPU) |
+| **Format** | Markdown — publishable as a repository, exportable to Word |
+
+> Note: the handbook body is currently written in Chinese. This README is the English entry point; each chapter is linked below so you can jump straight to the relevant file.
 
 ---
 
-## 这份手册解决什么问题
+## What This Handbook Solves
 
-私有化交付和"调 API"最大的区别是：**你要对一个跑在别人机房里的系统负责**。
-模型能不能加载、显存够不够、并发扛不扛得住、出了问题客户找谁 —— 这些在调 API 时
-都不存在，在私有化交付里全都要你兜住。
+The biggest difference between delivering a private deployment and calling an API is that **you are responsible for a system running inside someone else's data centre**. Whether the model loads, whether VRAM is sufficient, whether it survives concurrency, and who the customer calls when something breaks — none of these exist when you are calling an API, and all of them are yours to handle in a delivery.
 
-而网上关于大模型的资料，绝大多数在讲**怎么跑起来**（`pip install` + 一行命令），
-极少有人讲**怎么交付出去**：怎么勘察环境、怎么估算显存、怎么定验收标准、
-掉卡了看哪条日志、交付物要交哪几份。
+Meanwhile, most material about large models online covers **how to run one** (`pip install` plus a single command). Very little covers **how to deliver one**: how to survey the environment, how to estimate VRAM, how to define acceptance criteria, which log to read when a card drops out, and which documents to hand over.
 
-这份手册补的就是这一段。
+This handbook fills that gap.
 
 ---
 
-## 按你的角色选读法
+## Choose Your Reading Path
 
-| 你的处境 | 建议读法 |
+| Your situation | Suggested path |
 | --- | --- |
-| **第一次独立做交付** | 按顺序通读 01 → 07，边读边把 `templates/` 里的表单抄进项目目录 |
-| **到了现场，环境有异常** | 直接跳 [02 环境勘察](docs/02-environment-survey.md) 和 [07 故障排查](docs/07-troubleshooting.md) |
-| **要写交付方案 / 报价** | [03 方案设计](docs/03-solution-design.md)（含显存估算公式与算例）+ [06 验收](docs/06-acceptance.md) |
-| **客户抱怨"太慢"** | [05 压测与调优](docs/05-benchmark-tuning.md) —— 先统一指标口径，再谈优化 |
-| **只想抄表单** | 直接进 [`templates/`](templates/) |
+| **First solo delivery** | Read 01 → 07 in order, copying the forms in `templates/` into the project directory as you go |
+| **You are on site and something looks wrong** | Jump straight to [02 Environment Survey](docs/02-environment-survey.md) and [07 Troubleshooting](docs/07-troubleshooting.md) |
+| **You need to write a proposal or a quote** | [03 Solution Design](docs/03-solution-design.md) (VRAM estimation formulas and worked examples) + [06 Acceptance](docs/06-acceptance.md) |
+| **The customer says "it's too slow"** | [05 Benchmarking & Tuning](docs/05-benchmark-tuning.md) — agree on the metric definitions before discussing optimisation |
+| **You just want the forms** | Go straight to [`templates/`](templates/) |
 
 ---
 
-## 手册地图
+## Map of the Handbook
 
 ```
                     ┌──────────────────────────────────────────┐
-                    │  01 交付总览 · 阶段模型 · 角色 · 交付物   │
+                    │  01 Overview · phase model · roles ·     │
+                    │     deliverables                          │
                     └────────────────────┬─────────────────────┘
                                          │
         ┌────────────────────────────────┼────────────────────────────────┐
         │                                │                                │
         ▼                                ▼                                ▼
 ┌───────────────┐              ┌──────────────────┐            ┌──────────────────┐
-│ 02 环境勘察   │─────────────▶│ 03 方案设计       │───────────▶│ 04 实施部署       │
-│ 硬件/软件/网络│   Go/No-Go   │ 估算/选型/并行    │            │ 驱动/模型/参数    │
+│ 02 Environment│─────────────▶│ 03 Solution      │───────────▶│ 04 Deployment    │
+│    Survey     │   Go/No-Go   │    Design        │            │  driver / model  │
+│ HW/SW/network │              │ sizing / choice /│            │  / parameters    │
+│               │              │ parallelism      │            │                  │
 └───────────────┘              └──────────────────┘            └────────┬─────────┘
                                                                         │
                                                               ┌─────────▼─────────┐
-                                                              │ 05 压测与调优      │
-                                                              │ 指标口径/矩阵/曲线 │
+                                                              │ 05 Benchmarking   │
+                                                              │    & Tuning       │
+                                                              │ metrics / matrix  │
                                                               └─────────┬─────────┘
                                                                         │
                                                               ┌─────────▼─────────┐
-                                                              │ 06 验收            │
-                                                              │ 功能/性能/稳定性   │
+                                                              │ 06 Acceptance     │
+                                                              │ function / perf / │
+                                                              │ stability         │
                                                               └─────────┬─────────┘
                                                                         │
                                                               ┌─────────▼─────────┐
-                                                              │ 07 运维与故障排查  │
-                                                              │ 巡检/监控/故障树   │
+                                                              │ 07 Operations &   │
+                                                              │    Troubleshooting│
+                                                              │ patrol / monitor /│
+                                                              │ fault trees       │
                                                               └───────────────────┘
 ```
 
-### 章节索引
+### Chapter Index
 
-| 章节 | 内容 | 关键产出 |
+| Chapter | Contents | Key output |
 | --- | --- | --- |
-| [01 交付总览](docs/01-overview.md) | 8 阶段交付模型、角色职责矩阵、交付物清单、准出条件 | 项目计划骨架 |
-| [02 环境勘察与准入检查](docs/02-environment-survey.md) | GPU/CPU/网络/存储/软件栈勘察命令、版本对应表、信创要点 | 环境勘察表 + Go/No-Go 判定 |
-| [03 部署方案设计](docs/03-solution-design.md) | 模型选型、**显存估算公式与算例**、量化、TP/PP 决策树、引擎对比 | 部署方案说明书 |
-| [04 实施部署](docs/04-deployment.md) | 基础环境、模型完整性校验、**启动参数逐项详解**、健康检查 | 部署记录表 |
-| [05 压测与性能调优](docs/05-benchmark-tuning.md) | **TTFT/TPOT 口径定义**、压测设计、调优矩阵、曲线判读、真实案例 | 压测报告 |
-| [06 验收](docs/06-acceptance.md) | 功能/性能/稳定性验收、验收标准怎么写、验收不通过怎么办 | 验收测试报告 + 验收单 |
-| [07 运维与故障排查](docs/07-troubleshooting.md) | 巡检制度、监控与告警阈值、**6 棵故障树**、应急预案 | 运维手册 + 应急预案 |
-| [08 交付物与模板](docs/08-templates.md) | 全部交付物的用途与填写要点 | 交付文档包 |
-| [附录 A 命令速查](appendix/a-commands.md) | 按场景分组的可直接粘贴命令 | — |
-| [附录 B 检查清单](appendix/b-checklists.md) | 勘察/部署/上线/巡检四张可打印清单 | — |
-| [附录 C 术语表](appendix/c-glossary.md) | 中英对照，含易混淆项澄清 | — |
+| [01 Delivery Overview](docs/01-overview.md) | 8-phase delivery model, role responsibility matrix, deliverable list, exit criteria | Project plan skeleton |
+| [02 Environment Survey & Readiness Check](docs/02-environment-survey.md) | GPU/CPU/network/storage/software survey commands, version compatibility tables | Survey form + Go/No-Go decision |
+| [03 Solution Design](docs/03-solution-design.md) | Model selection, **VRAM estimation formulas with worked examples**, quantisation, TP/PP decision tree, engine comparison | Deployment design document |
+| [04 Deployment](docs/04-deployment.md) | Base environment, model integrity verification, **launch parameters explained one by one**, health checks | Deployment record |
+| [05 Benchmarking & Performance Tuning](docs/05-benchmark-tuning.md) | **TTFT / TPOT definitions**, benchmark design, tuning matrix, curve interpretation, real case study | Benchmark report |
+| [06 Acceptance](docs/06-acceptance.md) | Functional / performance / stability acceptance, how to write acceptance criteria, what to do when it fails | Acceptance test report + sign-off |
+| [07 Operations & Troubleshooting](docs/07-troubleshooting.md) | Patrol routines, monitoring and alert thresholds, **6 fault trees**, contingency plans | Ops runbook + contingency plan |
+| [08 Deliverables & Templates](docs/08-templates.md) | Purpose and completion guidance for every deliverable | Delivery document package |
+| [Appendix A — Command Reference](appendix/a-commands.md) | Copy-pasteable commands grouped by scenario | — |
+| [Appendix B — Checklists](appendix/b-checklists.md) | Four printable checklists: survey / deployment / go-live / patrol | — |
+| [Appendix C — Glossary](appendix/c-glossary.md) | Bilingual term list with clarification of commonly confused items | — |
 
-### 配套文章
+### Companion Article
 
-- **《大模型私有化交付：显存估算与压测的三个致命陷阱》**
-  → CSDN 版：[docs/article-csdn-3-traps.md](docs/article-csdn-3-traps.md)
-  ｜ 掘金版：[docs/article-juejin-3-traps.md](docs/article-juejin-3-traps.md)
+- **"LLM Private Deployment: Three Fatal Traps in VRAM Estimation and Benchmarking"**
+  → [docs/article-csdn-3-traps.md](docs/article-csdn-3-traps.md) ｜ [docs/article-juejin-3-traps.md](docs/article-juejin-3-traps.md)
 
-  把 [03 章](docs/03-solution-design.md) 的显存估算与
-  [05 章](docs/05-benchmark-tuning.md) 的压测口径抽出来单独讲透，
-  适合现场速查或对外分享：KV Cache 与 GQA 分组比陷阱、三个并发算例、
-  TTFT 三个口径陷阱、真机压测的曲线判读口诀与**引用边界**。
+  Extracts the VRAM estimation from [Chapter 03](docs/03-solution-design.md) and the benchmarking definitions from [Chapter 05](docs/05-benchmark-tuning.md) into a standalone walkthrough — useful for on-site reference or sharing externally. Covers the KV cache and GQA grouping-ratio trap, three concurrency worked examples, three TTFT definition traps, and how to read real-hardware benchmark curves (including the limits of what you may conclude).
 
-  掘金版为按该平台规范重排的版本：结论先行、代码块标注语言，
-  并**新增** `config.json` 实读验证的 GQA 分组比对照表与 `scripts/estimate_kv.py` 用法。
+### Companion Script
 
-  > 文中数据来自 [05 章 5.6 实测案例](docs/05-benchmark-tuning.md)，运行环境已在文中逐项标注。
-  > 组内分享或对外引用时**请一并带上环境标注**，不要脱离硬件谈数字。
-
-### 配套脚本
-
-| 脚本 | 用途 |
+| Script | Purpose |
 | --- | --- |
-| [scripts/estimate_kv.py](scripts/estimate_kv.py) | 读模型 `config.json` 算出单 token KV、显存拆分与**可支持并发路数**；不依赖第三方库，`--selftest` 可自检（复现 03 章三个算例） |
+| [`scripts/estimate_kv.py`](scripts/estimate_kv.py) | Reads a model's `config.json` and computes per-token KV size, the VRAM breakdown, and **the maximum number of concurrent sequences**. No third-party dependencies; `--selftest` reproduces the three worked examples in Chapter 03. |
 
 ```bash
-# 例：Qwen2.5-72B FP16，8 × A100 80G，32K 上下文
-python scripts/estimate_kv.py --config <模型目录>/config.json \
+# Example: Qwen2.5-72B FP16 on 8 × A100 80G with 32K context
+python scripts/estimate_kv.py --config <model_dir>/config.json \
     --params-b 72.7 --gpu-gb 80 --gpus 8 --overhead-gb 32 --ctx 32768
-# → 单 token KV 320 KiB（按注意力头误算会差 8 倍）；KV Cache 池 398.6 GB；≈ 39 路
+# → 320 KiB per token KV (computing via attention heads would be off by 8×);
+#   KV cache pool 398.6 GB; ≈ 39 concurrent sequences
 ```
 
-> 并发路数一律**向下取整**：容量规划宁可报少，不能报多。
+> Concurrency is always **rounded down**: when capacity planning, it is better to under-promise than to over-promise.
 
 ---
 
-## 阅读约定
+## Conventions
 
-**命令格式**：`$` 开头为普通用户，`#` 开头为 root，`>>>` 为 Python 交互。
+**Command format:** `$` denotes a normal user, `#` denotes root, `>>>` denotes a Python REPL.
 
-**提示块**：
+**Callout blocks:**
 
-- ✅ **推荐做法** —— 可以直接照做
-- ⚠️ **注意** —— 有前提条件或副作用，做之前先确认
-- ❌ **错误做法** —— 见过有人这么干并出了事
+- ✅ **Recommended** — safe to copy directly
+- ⚠️ **Caution** — has preconditions or side effects; verify before proceeding
+- ❌ **Anti-pattern** — someone has done this, and it went badly
 
-**数字口径**：本手册中出现的每一项性能数字，都标注了**来源与运行环境**。
-凡是标注 `【实测案例】` 的，都来自可复现的运行记录；凡是标注 `【示例】` 的，
-仅用于演示计算方法，**不可直接引用为你的交付数据**。
+**Numbers:** every performance figure in this handbook is annotated with its **source and runtime environment**. Figures marked `【measured】` come from reproducible run records; figures marked `【example】` are for demonstrating a calculation method only and **must not be quoted as your own delivery data**.
 
 ---
 
-## 免责与适用范围
+## Disclaimer & Scope
 
-本手册是一份**工程实践总结**，不是任何厂商的官方文档。参数默认值、命令语法
-会随版本变化，**执行前请以你所用版本的官方文档为准**。手册里给出的阈值、
-经验系数来自公开资料与个人实践，用于快速估算和排查定位，**不构成性能承诺**。
+This handbook is a **summary of engineering practice**, not official vendor documentation. Parameter defaults and command syntax change between versions — **always defer to the official documentation for the version you are running**. The thresholds and rules of thumb given here come from public sources and personal practice; they are intended for quick estimation and fault localisation and **do not constitute a performance commitment**.
 
 ---
 
-## 版本记录
+## Version History
 
-| 版本 | 日期 | 变更 |
+| Version | Date | Change |
 | --- | --- | --- |
-| v1.0 | 2026-10-09 | 首次发布：8 章 + 3 附录 + 3 模板 |
+| v1.0 | 2026-10-09 | First release: 8 chapters + 3 appendices + 3 templates |
 
 ---
 
-## 许可
+## License
 
-- **文档正文**（各 `.md` 的叙述性内容）：[CC BY 4.0](LICENSE-docs.md)
-- **代码片段**（shell / Python / YAML / Nginx 配置）：[MIT](LICENSE)
+- **Documentation prose** (the narrative content of each `.md`): [CC BY 4.0](LICENSE-docs.md)
+- **Code snippets** (shell / Python / YAML / Nginx config): [MIT](LICENSE)
 
-欢迎转载与二次整理，注明出处即可。
+Reposting and adaptation are welcome — just credit the source.
 
-## 反馈与勘误
+## Feedback
 
-手册中的参数默认值与命令语法会随版本变化。如果发现与实际版本不符，
-或你有更好的做法，欢迎提 Issue。**这份手册的价值在于持续被现实修正。**
+Parameter defaults and command syntax in this handbook change with upstream versions. If you find something that no longer matches your version, or you have a better approach, please open an issue. **The value of this handbook lies in being continuously corrected by reality.**
