@@ -2,7 +2,7 @@
 
 > 本文作者原创，首发于 CSDN：<https://blog.csdn.net/2302_79954719/article/details/167391644>
 > 仓库内另有 CSDN 排版版（本文为掘金规范重排版）：[article-csdn-3-traps.md](article-csdn-3-traps.md)
-> 配套开源手册《大模型私有化交付操作手册》：<https://github.com/yangchuan665/llm-private-deploy-handbook>
+> 配套开源手册《大模型私有化交付操作手册》：<https://github.com/Lowaltitudeflight/llm-private-deploy-handbook>
 
 ## TL;DR
 
@@ -355,7 +355,7 @@ for chunk in resp:                     # 真正的首 token 在这里才到
 
 ## 项目地址
 
-**<https://github.com/yangchuan665/llm-private-deploy-handbook>**
+**<https://github.com/Lowaltitudeflight/llm-private-deploy-handbook>**
 
 一份从环境勘察到验收移交的全流程操作手册：8 章正文 + 3 篇附录 + 3 张交付模板，覆盖 vLLM / SGLang / TGI / TensorRT-LLM / lmdeploy / ollama；本文用到的 `scripts/estimate_kv.py` 也在仓库里，可 `--selftest` 自检。
 

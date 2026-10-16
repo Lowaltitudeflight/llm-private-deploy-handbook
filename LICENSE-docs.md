@@ -28,5 +28,5 @@
 
 ```
 王光硕. 大模型私有化交付操作手册 (v1.0). 2026.
-https://github.com/yangchuan665/llm-private-deploy-handbook
+https://github.com/Lowaltitudeflight/llm-private-deploy-handbook
 ```

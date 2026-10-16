@@ -1,6 +1,6 @@
 # 大模型私有化交付：显存估算与压测的三个致命陷阱
 
-> **项目地址**：https://github.com/yangchuan665/llm-private-deploy-handbook
+> **项目地址**：https://github.com/Lowaltitudeflight/llm-private-deploy-handbook
 >
 > 一份从环境勘察到验收移交的全流程操作手册：8 章正文 + 3 篇附录 + 3 张交付模板。
 > 覆盖 vLLM / SGLang / TGI / TensorRT-LLM / lmdeploy / ollama。
@@ -321,7 +321,7 @@ for chunk in resp:                     # 真正的首 token 在这里才到
 
 ## 项目地址
 
-**https://github.com/yangchuan665/llm-private-deploy-handbook**
+**https://github.com/Lowaltitudeflight/llm-private-deploy-handbook**
 
 手册结构（8 章 + 3 附录 + 3 模板）：
 

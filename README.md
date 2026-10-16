@@ -2,8 +2,8 @@
 
 > An end-to-end operations guide from environment survey to acceptance hand-over — written for delivery engineers, implementation teams, and anyone who has to write a private-deployment proposal.
 
-[![Stars](https://img.shields.io/github/stars/yangchuan665/llm-private-deploy-handbook?style=flat&color=yellow)](https://github.com/yangchuan665/llm-private-deploy-handbook/stargazers)
-[![Forks](https://img.shields.io/github/forks/yangchuan665/llm-private-deploy-handbook?style=flat&color=blue)](https://github.com/yangchuan665/llm-private-deploy-handbook/network/members)
+[![Stars](https://img.shields.io/github/stars/Lowaltitudeflight/llm-private-deploy-handbook?style=flat&color=yellow)](https://github.com/Lowaltitudeflight/llm-private-deploy-handbook/stargazers)
+[![Forks](https://img.shields.io/github/forks/Lowaltitudeflight/llm-private-deploy-handbook?style=flat&color=blue)](https://github.com/Lowaltitudeflight/llm-private-deploy-handbook/network/members)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Docs License: CC BY 4.0](https://img.shields.io/badge/docs%20license-CC%20BY%204.0-lightgrey.svg)](LICENSE-docs.md)
 [![Chapters](https://img.shields.io/badge/chapters-8-brightgreen.svg)](docs/)
