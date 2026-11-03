@@ -85,7 +85,7 @@ curl -s -o /dev/null -w "  /health http_code=%{http_code} 耗时=%{time_total}s\
 
 echo "--- 5. 关键业务指标（需 vLLM /metrics）---"
 curl -s --max-time 5 http://localhost:8000/metrics 2>/dev/null | \
-  grep -E "^vllm:(num_requests_running|num_requests_waiting|gpu_cache_usage_perc)" \
+  grep -E "^vllm:(num_requests_running|num_requests_waiting|kv_cache_usage_perc)" \
   || echo "  指标不可达"
 
 echo "--- 6. 磁盘 ---"
@@ -128,12 +128,12 @@ echo "===== 巡检结束 ====="
 | --- | --- | --- |
 | `vllm:num_requests_running` | 正在处理的请求数 | 运行的并发度 |
 | `vllm:num_requests_waiting` | **排队中的请求数** | **最重要的指标之一** |
-| `vllm:gpu_cache_usage_perc` | KV 缓存使用率 | 0~1 |
-| `vllm:prefix_cache_hit_rate` | 前缀缓存命中率 | 越高越省算力 |
+| `vllm:kv_cache_usage_perc` | KV 缓存使用率 | 0~1 |
+| `vllm:prefix_cache_hits` / `vllm:prefix_cache_queries` | 前缀缓存命中率（两个计数器相除） | `rate(hits[5m]) / rate(queries[5m])`，越高越省算力 |
 | `vllm:time_to_first_token_seconds` | TTFT 直方图 | 算 P50/P95/P99 |
 | `vllm:time_per_output_token_seconds` | TPOT 直方图 | — |
 | `vllm:e2e_request_latency_seconds` | 端到端延迟直方图 | — |
-| `vllm:request_success_total` | 成功请求计数 | 按 finish_reason 分标签 |
+| `vllm:request_success_total` | 成功请求计数 | 标签名是 **`finished_reason`**，不是 `finish_reason` |
 | `vllm:num_preemptions_total` | **抢占次数** | ⚠️ 大于 0 说明显存吃紧 |
 | `vllm:prompt_tokens_total` / `generation_tokens_total` | token 计数 | 算吞吐与计费 |
 
@@ -247,7 +247,7 @@ CUDA out of memory
 │   ├─ 日志含 "Free memory on device (X GiB) is less than desired..."
 │   │   → 权重本身就装不下
 │   │     处置：① 降低量化精度（FP16→INT8→AWQ）② 增大 --tensor-parallel-size
-│   │           ③ 减少使用的卡数（改用更少的卡？不，是增加卡）
+│   │           ③ 增加卡数（权重按 TP 切分，卡越多每卡越少）
 │   ├─ 日志含 "The model's max seq len ... larger than the maximum number
 │   │   of tokens that can be stored in KV cache"
 │   │   → 上下文太长，KV 装不下
@@ -257,9 +257,16 @@ CUDA out of memory
 │         处置：降低 --max-model-len 或 --gpu-memory-utilization
 │
 ├─ B2 运行中 OOM（并发上来之后）
-│   ├─ KV 池被吃满
-│   │   → 降低 --max-num-seqs（最直接）
-│   │   → 开 --kv-cache-dtype fp8（KV 显存减半）
+│   ├─ 先分清：KV 池满 vs 激活峰值
+│   │   → 日志有 preemption / "Waiting: N" 且服务还在跑 = KV 池满（排队，不是 OOM）
+│   │   → 直接 Allocation failed、进程退出 = 激活峰值或碎片
+│   ├─ 激活峰值（运行中真正的 OOM 主因）
+│   │   → 降 --max-num-batched-tokens（prefill 峰值，首选）
+│   │   → 再降 --max-model-len
+│   │   → 仍不够：降 --gpu-memory-utilization 给运行时留空间
+│   ├─ KV 池满（表现为排队 / TTFT 陡增）
+│   │   → 降 --max-num-seqs 限制在飞请求数
+│   │   → 开 --kv-cache-dtype fp8（KV 显存减半，需 SM≥8.9）
 │   │   → 降低 --max-model-len
 │   ├─ 单个超长请求
 │   │   → 限制请求的 max_tokens；在网关层限制输入长度
@@ -278,12 +285,17 @@ CUDA out of memory
 | --- | --- | --- | --- |
 | 启动就装不下 | 加 `--tensor-parallel-size` | 换更激进的量化 | 需要更多卡 / 精度损失 |
 | 上下文太长 | 降 `--max-model-len` | 开 `--kv-cache-dtype fp8` | 缩短可用上下文 |
-| 并发起不来 | 降 `--max-num-seqs` | 开 KV fp8 | 降低并发能力 |
+| 并发起不来 | 调**高** `--max-num-seqs`（先确认没被显存取死） | 开 KV fp8、加卡 | 显存占用上升 |
+| 运行中 OOM（进程退出） | 降 `--max-num-batched-tokens` | 降 `--max-model-len` | 长请求变慢/变短 |
 | 碎片 | 重启服务 | 调低 `gpu-memory-utilization` | 短暂中断 |
 
-> ✅ **一个通用原则**：**OOM 时优先降 `--max-model-len`，而不是降 `--max-num-seqs`。**
-> 因为长度是**单次请求**的需求（必须满足，否则请求失败），
-> 并发是**整体吞吐**的指标（降了只是变慢，不影响可用性）。
+> ✅ **判读原则**：先确定 OOM 发生在**启动**还是**运行中**。
+> 启动 OOM 看权重/上下文能不能装下（降量化、加卡、降 `--max-model-len`）；
+> 运行中 OOM 通常是**激活峰值**，首选降 `--max-num-batched-tokens`，
+> 而不是 `--max-num-seqs`——后者只是并发上限，不控制 prefill 的瞬时显存。
+>
+> 另外，"降 `--max-num-seqs` 只是变慢、不影响可用性"这句话不准确：
+> 它会让请求排队，TTFT 上升，客户端超时或网关 429，本身就是可用性影响。
 
 ---
 

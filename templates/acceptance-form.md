@@ -59,8 +59,8 @@ nvidia-smi --query-compute-apps=pid,process_name,used_memory --format=csv
 | F10 | 停止词 | 在停止词处截断 | | ☐通过 ☐不通过 |
 | F11 | 鉴权 - 无 Key | 401 | | ☐通过 ☐不通过 |
 | F12 | 鉴权 - 错 Key | 401 | | ☐通过 ☐不通过 |
-| F13 | 非法 JSON | 400，不崩 | | ☐通过 ☐不通过 |
-| F14 | 空 messages | 400，不崩 | | ☐通过 ☐不通过 |
+| F13 | 空 messages | 400，不崩 | | ☐通过 ☐不通过 |
+| F14 | 非法 JSON | 400，不崩 | | ☐通过 ☐不通过 |
 | F15 | 并发 2 路 | 均成功 | | ☐通过 ☐不通过 |
 | F16 | 服务重启恢复 | 自动恢复 | | ☐通过 ☐不通过 |
 | F17 | 监控面板 | 可见关键指标 | | ☐通过 ☐不通过 |
@@ -90,7 +90,9 @@ nvidia-smi --query-compute-apps=pid,process_name,used_memory --format=csv
 | --- | --- |
 | 硬件配置 | |
 | 引擎与版本 | |
+| **镜像 digest** | （`vllm/vllm-openai@sha256:...`，tag 可变，不能只写 tag） |
 | 模型与精度 | |
+| **权重 sha256** | （至少记录 `index.json` 的 total_size 与 sha256 清单文件路径） |
 | 服务启动参数 | （见附件） |
 | 压测工具与版本 | |
 | 输入长度 / 输出长度 | |
@@ -98,6 +100,7 @@ nvidia-smi --query-compute-apps=pid,process_name,used_memory --format=csv
 | 预热次数 | |
 | 温度 / 随机种子 | |
 | 压测机是否独立 | ☐ 是 ☐ 否 |
+| 压测机与被测机是否同机 | ☐ 同机 ☐ 分离（同机会污染 TTFT，必须注明） |
 
 ### 4.3 结果与判定
 

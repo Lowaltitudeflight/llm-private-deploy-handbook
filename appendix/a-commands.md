@@ -108,8 +108,8 @@ modelscope download --model Qwen/Qwen2.5-72B-Instruct \
 # ---- HuggingFace CLI（走镜像）----
 pip install -U "huggingface_hub[cli]"
 HF_ENDPOINT=https://hf-mirror.com \
-  huggingface-cli download Qwen/Qwen2.5-72B-Instruct \
-  --local-dir /data/models/Qwen2.5-72B-Instruct --resume-download
+  hf download Qwen/Qwen2.5-72B-Instruct \
+  --local-dir /data/models/Qwen2.5-72B-Instruct
 
 # ---- 快速看模型关键配置（决定显存估算）----
 python - <<'PY'
@@ -131,20 +131,35 @@ if L and KV and HD:
         print(f"  {ctx:>6} 上下文单序列 = {b*ctx/1024**3:.2f} GiB")
 PY
 
-# ---- 权重完整性校验（比对 index.json 声明大小）----
+# ---- 权重完整性校验（解析 safetensors header，比 payload 字节数）----
 python - <<'PY'
-import json, os
+import json, os, struct
+
 d = "."
+def payload_bytes(path):
+    with open(path, "rb") as fh:
+        n = struct.unpack("<Q", fh.read(8))[0]
+        header = json.loads(fh.read(n))
+    return max(
+        (v["data_offsets"][1] for k, v in header.items() if k != "__metadata__"),
+        default=0,
+    )
+
 shards = sorted(f for f in os.listdir(d) if f.endswith(".safetensors"))
-actual = sum(os.path.getsize(os.path.join(d,f)) for f in shards)
-print(f"分片数={len(shards)}  实际总大小={actual/1024**3:.2f} GiB")
+actual = sum(payload_bytes(os.path.join(d, f)) for f in shards)
+print(f"分片数={len(shards)}  payload 合计={actual/1024**3:.2f} GiB")
+
 idx = "model.safetensors.index.json"
 if os.path.exists(idx):
     m = json.load(open(idx, encoding="utf-8"))
-    dec = m.get("metadata",{}).get("total_size")
-    listed = set(m.get("weight_map",{}).values())
-    print(f"index 声明={dec/1024**3:.2f} GiB  缺失分片={sorted(listed-set(shards)) or '无'}")
-    print("✅ 一致" if dec and abs(actual-dec)/dec < 1e-6 else "❌ 不一致，分片可能不完整")
+    dec = m.get("metadata", {}).get("total_size")
+    listed = set(m.get("weight_map", {}).values())
+    label = "缺失" if dec is None else f"{dec/1024**3:.2f} GiB"
+    print(f"index 声明={label}  缺失分片={sorted(listed - set(shards)) or '无'}")
+    if dec is None:
+        print("⚠️ index 无 total_size，只校验分片清单")
+    else:
+        print("✅ payload 字节数一致" if actual == dec else "❌ 不一致，分片可能不完整")
 PY
 ```
 
@@ -166,10 +181,9 @@ docker run -d --name vllm \
     --gpu-memory-utilization 0.90 \
     --max-model-len 8192 \
     --max-num-seqs 64 \
-    --max-num-batched-tokens 8192 \
+    --max-num-batched-tokens 2048 \
     --enable-prefix-caching \
-    --enable-chunked-prefill \
-    --quantization awq --dtype bfloat16 \
+    --quantization awq --dtype float16 \
     --disable-log-requests \
     --api-key "${API_KEY}"
 
@@ -180,7 +194,8 @@ docker logs -f vllm
 vllm serve /models/Qwen2.5-7B-Instruct \
   --tensor-parallel-size 1 --gpu-memory-utilization 0.90 \
   --max-model-len 32768 --max-num-seqs 16 \
-  --enable-prefix-caching --kv-cache-dtype fp8 \
+    --enable-prefix-caching \
+    # --kv-cache-dtype fp8 仅 SM>=8.9（Ada/Hopper+）；A100 不支持
   --disable-log-requests
 ```
 
@@ -262,7 +277,7 @@ curl -s -o /dev/null -w "%{http_code}\n" --max-time 5 http://localhost:8000/heal
 
 # ---- vLLM 关键指标 ----
 curl -s http://localhost:8000/metrics | grep -E \
-"^vllm:(num_requests_running|num_requests_waiting|gpu_cache_usage_perc|num_preemptions_total|prefix_cache_hit_rate)"
+"^vllm:(num_requests_running|num_requests_waiting|kv_cache_usage_perc|num_preemptions_total|prefix_cache_hits|prefix_cache_queries)"
 
 # ---- 实时显存/利用率 ----
 nvidia-smi --query-gpu=index,memory.used,memory.total,utilization.gpu,temperature.gpu,\

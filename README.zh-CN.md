@@ -14,7 +14,7 @@
 | --- | --- |
 | **版本** | v1.0 |
 | **更新日期** | 2026-10-09 |
-| **覆盖引擎** | vLLM / SGLang / TGI / TensorRT-LLM / lmdeploy / ollama |
+| **引擎覆盖** | **vLLM 深度覆盖**（命令、调优、故障树、验收）；SGLang / TGI / TensorRT-LLM / lmdeploy / ollama 只给参数对照与选型建议，不算已验证的 runbook |
 | **适用规模** | 单机单卡 ~ 多机多卡（含 8 卡整机、双机 16 卡） |
 | **文档形态** | Markdown，可直接作为仓库发布、也可导出 Word |
 
@@ -89,6 +89,7 @@
 | [06 验收](docs/06-acceptance.md) | 功能/性能/稳定性验收、验收标准怎么写、验收不通过怎么办 | 验收测试报告 + 验收单 |
 | [07 运维与故障排查](docs/07-troubleshooting.md) | 巡检制度、监控与告警阈值、**6 棵故障树**、应急预案 | 运维手册 + 应急预案 |
 | [08 交付物与模板](docs/08-templates.md) | 全部交付物的用途与填写要点 | 交付文档包 |
+| [09 安全与合规](docs/09-security-compliance.md) | 等保/密评、访问控制、日志、供应链与许可证、自查表 | 安全评审材料 |
 | [附录 A 命令速查](appendix/a-commands.md) | 按场景分组的可直接粘贴命令 | — |
 | [附录 B 检查清单](appendix/b-checklists.md) | 勘察/部署/上线/巡检四张可打印清单 | — |
 | [附录 C 术语表](appendix/c-glossary.md) | 中英对照，含易混淆项澄清 | — |
@@ -120,7 +121,7 @@
 # 例：Qwen2.5-72B FP16，8 × A100 80G，32K 上下文
 python scripts/estimate_kv.py --config <模型目录>/config.json \
     --params-b 72.7 --gpu-gb 80 --gpus 8 --overhead-gb 32 --ctx 32768
-# → 单 token KV 320 KiB（按注意力头误算会差 8 倍）；KV Cache 池 398.6 GB；≈ 39 路
+# → 单 token KV 320 KiB（按注意力头误算会差 8 倍）；KV Cache 池 408.6 GiB；规划并发 32 路
 ```
 
 > 并发路数一律**向下取整**：容量规划宁可报少，不能报多。
