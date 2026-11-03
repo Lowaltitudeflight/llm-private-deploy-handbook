@@ -146,9 +146,9 @@ modelscope download --model Qwen/Qwen2.5-72B-Instruct \
 ```bash
 pip install -U "huggingface_hub[cli]"
 HF_ENDPOINT=https://hf-mirror.com \
-  huggingface-cli download Qwen/Qwen2.5-72B-Instruct \
+# huggingface_hub 1.x：CLI 已由 huggingface-cli 改为 hf；--resume-download 已移除（续传是默认行为）
+  hf download Qwen/Qwen2.5-72B-Instruct \
   --local-dir /data/models/Qwen2.5-72B-Instruct \
-  --resume-download
 ```
 
 **方式三：离线导入**（无外网环境）
@@ -165,8 +165,9 @@ tar -cJf qwen72b.tar.xz -C /data/models Qwen2.5-72B-Instruct   # 压缩率有限
 tar -xf qwen72b.tar -C /data/models
 ```
 
-> ⚠️ **别用 `--resume-download` 之外的任何"断点续传"自定义方案**，
-> 半截文件是最难排查的问题来源。
+> ⚠️ **别用任何自定义"断点续传"方案**，半截文件是最难排查的问题来源。
+> `hf download` 默认就是续传；旧版 `huggingface-cli --resume-download`
+> 在 huggingface_hub 1.x 里已不存在，照老文档抄会直接报参数错误。
 
 ### 4.3.2 完整性校验（必做）
 
@@ -204,29 +205,43 @@ if "num_key_value_heads" not in cfg:
     print("  ⚠️ 缺少 num_key_value_heads，KV Cache 估算需按 num_attention_heads 计算")
 
 # ---- 2) safetensors 分片校验 ----
+# 注意：不能拿「文件大小」和 index 的 total_size 比。文件大小 =
+# 8 字节头长度 + JSON header + tensor payload，而 total_size 只算 payload，
+# 每个分片都差几十字节，相对偏差 1e-5~1e-4 恒大于任何 1e-6 的容差——
+# 完整下载也会被判成"可能不完整"。正确做法是解析每个分片的 header。
+import struct
+
+def payload_bytes(path):
+    """解析 safetensors 头，返回 tensor payload 的精确字节数。"""
+    with open(path, "rb") as fh:
+        n = struct.unpack("<Q", fh.read(8))[0]      # header 长度
+        header = json.loads(fh.read(n))
+    end = 0
+    for key, info in header.items():
+        if key == "__metadata__":
+            continue
+        end = max(end, info["data_offsets"][1])
+    return end
+
 shards = sorted(f for f in os.listdir(model_dir) if f.endswith(".safetensors"))
-print(f"\n=== 权重文件（{len(shards)} 个分片）===")
+print(f"
+=== 权重文件（{len(shards)} 个分片）===")
+actual_total = sum(payload_bytes(os.path.join(model_dir, f)) for f in shards)
+print(f"  payload 合计 = {actual_total/1024**3:.2f} GiB")
 
-actual_total = 0
-for f in shards:
-    sz = os.path.getsize(os.path.join(model_dir, f))
-    actual_total += sz
-
-print(f"  实际总大小 = {actual_total/1024**3:.2f} GiB")
-
-# 与 index.json 的元数据比对（这是最可靠的一致性检查）
 idx_path = os.path.join(model_dir, "model.safetensors.index.json")
 if os.path.exists(idx_path):
     idx = json.load(open(idx_path, encoding="utf-8"))
     declared = idx.get("metadata", {}).get("total_size")
     listed = set(idx.get("weight_map", {}).values())
-    print(f"  index 声明 = {declared/1024**3:.2f} GiB")
-    if declared:
-        diff = abs(actual_total - declared) / declared
-        if diff < 1e-6:
-            print("  ✅ 大小完全一致")
+    if declared is None:
+        print("  ⚠️ index 没有 metadata.total_size，跳过大小比对（只查分片清单）")
+    else:
+        print(f"  index 声明   = {declared/1024**3:.2f} GiB")
+        if actual_total == declared:
+            print("  ✅ payload 字节数完全一致")
         else:
-            print(f"  ❌ 大小不一致，偏差 {diff:.4%} —— 分片可能不完整！")
+            print(f"  ❌ 相差 {actual_total - declared} 字节 —— 分片可能不完整！")
             ok = False
     missing = listed - set(shards)
     if missing:
@@ -257,11 +272,12 @@ sys.exit(0 if ok else 1)
 python check_model.py /data/models/Qwen2.5-72B-Instruct
 ```
 
-> ✅ **为什么用 `index.json` 的 `metadata.total_size` 比对**：
-> 这是分片下载工具自己写下的"应该有多大"。
-> 实际大小完全一致，说明**每一个分片都完整**；
-> 有偏差就说明某个分片截断了，这时候 `safetensors` 加载会报
-> `Error while deserializing header` 之类的诡异错误。
+> ✅ **为什么要解析 header，而不是比文件大小**：
+> `index.json` 的 `metadata.total_size` 只统计 tensor payload，
+> 而磁盘上的 `.safetensors` 还要带 8 字节头长度和一段 JSON header。
+> 直接比文件大小，**完整下载也会差 1e-5~1e-4**，于是每一次都报
+> "分片可能不完整"——现场两次之后就再也没人看这个检查了。
+> 解析 header 后 payload 字节数是精确值，相等即完整，不等就是截断。
 
 > ⚠️ **量化模型的额外检查**：AWQ/GPTQ 模型目录里应有 `quant_config` 相关的
 > 元信息，且 **不能有残留的 FP16 分片**。两者混在目录里会导致加载混乱。
@@ -354,7 +370,7 @@ vllm serve /models/Qwen2.5-7B-Instruct \
 | `--gpu-memory-utilization` | 显存使用比例 | **0.90**（默认）；与别的业务共卡时降到 0.6~0.7 | 设 1.0 → 必然 OOM（没给激活留空间） |
 | `--max-model-len` | 最大上下文长度 | 按业务需要，**越小 KV 池越大** | 直接沿用模型上限（如 128K）→ 并发能力被吃光 |
 | `--max-num-seqs` | 最大并发序列数 | 由 KV 池算出（见 3.3.4） | 设太大 → 显存不够；太小 → 请求排队 |
-| `--max-num-batched-tokens` | 单批最大 token 数 | 2440~8192，调大提升吞吐但增延迟 | 调得过大 → 长 prompt 独占一个 batch |
+| `--max-num-batched-tokens` | 单批最大 token 数 | **从 2048 起步**；A100 上 API server 默认就是 2048，调大属于 A/B 项 | 调得过大 → 长 prompt 独占一个 batch，TTFT 抖动 |
 | `--swap-space` | CPU 显存交换空间(GiB) | 默认 4；显存紧张可加大 | 设太大且真用上 → 性能暴跌 |
 | `--cpu-offload-gb` | 卸载到 CPU 的显存 | 显存实在不够时的最后手段 | **会严重拖慢**，只用于"能跑就行" |
 
@@ -363,8 +379,8 @@ vllm serve /models/Qwen2.5-7B-Instruct \
 | 参数 | 作用 | 收益 | 代价 |
 | --- | --- | --- | --- |
 | `--enable-prefix-caching` | 复用相同前缀的 KV | **多轮对话/固定 system prompt 场景收益巨大**（命中率高时 TTFT 降数倍） | 显存多占一点；命中率低时几乎无收益 |
-| `--enable-chunked-prefill` | 把长 prompt 预填充切块 | **显著降低 TTFT 抖动**，避免长请求阻塞短请求 | 略增调度开销 |
-| `--kv-cache-dtype fp8` | KV Cache 用 FP8 | **KV 显存减半 → 并发能力翻倍** | 需较新 GPU；轻微精度影响 |
+| `--enable-chunked-prefill` | 把长 prompt 预填充切块 | V1 引擎**默认开启**，不用显式传；仅 V0 需要打开 | 略增调度开销 |
+| `--kv-cache-dtype fp8` | KV Cache 用 FP8 | **KV 显存减半 → 并发能力翻倍** | 需 **SM≥8.9**（Ada/Hopper 及以后）；**A100（SM80）不支持**；轻微精度影响 |
 | `--quantization` | 权重反量化 | 显存大降 | 见 [03 章 3.4](03-solution-design.md) |
 | `--dtype bfloat16` | 计算精度 | 与 FP16 等价，数值更稳 | 老卡（V100）不支持 bf16 |
 | `--enforce-eager` | 关闭 CUDA Graph | 启动快、调试方便 | **吞吐下降**，生产不要开 |
@@ -407,11 +423,11 @@ vllm serve /models/Qwen2.5-72B-Instruct-AWQ \
   --gpu-memory-utilization 0.90 \
   --max-model-len 8192 \
   --max-num-seqs 64 \
-  --max-num-batched-tokens 8192 \
+  # A100 从 2048 起步，调大需要 A/B
+  --max-num-batched-tokens 2048 \
   --enable-prefix-caching \
-  --enable-chunked-prefill \
   --quantization awq \
-  --dtype bfloat16 \
+  --dtype float16 \        # AWQ 只支持 fp16 激活
   --disable-log-requests \
   --api-key "${API_KEY}"
 ```
@@ -424,7 +440,7 @@ vllm serve /models/Qwen2.5-7B-Instruct \
   --max-model-len 32768 \
   --max-num-seqs 16 \
   --enable-prefix-caching \
-  --kv-cache-dtype fp8 \
+  # --kv-cache-dtype fp8 仅 SM>=8.9（Ada/Hopper+）；A100 上会失败或回退
   --disable-log-requests
 ```
 

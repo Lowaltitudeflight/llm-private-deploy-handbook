@@ -15,7 +15,7 @@
 | --- | --- |
 | **Version** | v1.0 |
 | **Last updated** | 2026-10-09 |
-| **Engines covered** | vLLM / SGLang / TGI / TensorRT-LLM / lmdeploy / Ollama |
+| **Engines** | **vLLM in depth** (commands, tuning, troubleshooting, acceptance); SGLang / TGI / TensorRT-LLM / lmdeploy / Ollama as parameter mapping and selection guidance — not as verified runbooks |
 | **Scale covered** | single node & single GPU up to multi-node multi-GPU (8-GPU servers, dual-node 16-GPU) |
 | **Format** | Markdown — publishable as a repository, exportable to Word |
 
@@ -95,6 +95,7 @@ This handbook fills that gap.
 | [06 Acceptance](docs/06-acceptance.md) | Functional / performance / stability acceptance, how to write acceptance criteria, what to do when it fails | Acceptance test report + sign-off |
 | [07 Operations & Troubleshooting](docs/07-troubleshooting.md) | Patrol routines, monitoring and alert thresholds, **6 fault trees**, contingency plans | Ops runbook + contingency plan |
 | [08 Deliverables & Templates](docs/08-templates.md) | Purpose and completion guidance for every deliverable | Delivery document package |
+| [09 Security & Compliance](docs/09-security-compliance.md) | MLPS 2.0 / crypto assessment, access control, logging, SBOM, model licences | Security review pack |
 | [Appendix A — Command Reference](appendix/a-commands.md) | Copy-pasteable commands grouped by scenario | — |
 | [Appendix B — Checklists](appendix/b-checklists.md) | Four printable checklists: survey / deployment / go-live / patrol | — |
 | [Appendix C — Glossary](appendix/c-glossary.md) | Bilingual term list with clarification of commonly confused items | — |
@@ -117,7 +118,7 @@ This handbook fills that gap.
 python scripts/estimate_kv.py --config <model_dir>/config.json \
     --params-b 72.7 --gpu-gb 80 --gpus 8 --overhead-gb 32 --ctx 32768
 # → 320 KiB per token KV (computing via attention heads would be off by 8×);
-#   KV cache pool 398.6 GB; ≈ 39 concurrent sequences
+#   KV cache pool 408.6 GiB; 40.9 theoretical -> 32 planned concurrent sequences
 ```
 
 > Concurrency is always **rounded down**: when capacity planning, it is better to under-promise than to over-promise.

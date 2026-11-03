@@ -159,7 +159,7 @@ Go / No-Go：__________
 | 5 | Xid 报错 | `dmesg -T \| grep -i xid` | 无 | ⬜ |
 | 6 | 服务健康 | `curl /health` | 200 | ⬜ |
 | 7 | 排队请求数 | `vllm:num_requests_waiting` | 长期为 0 | ⬜ |
-| 8 | KV 缓存使用率 | `vllm:gpu_cache_usage_perc` | 20%~70% | ⬜ |
+| 8 | KV 缓存使用率 | `vllm:kv_cache_usage_perc` | 20%~70% | ⬜ |
 | 9 | 抢占次数增速 | `vllm:num_preemptions_total` | 增速为 0 | ⬜ |
 | 10 | 磁盘剩余 | `df -h` | > 15% | ⬜ |
 | 11 | 是否降频 | `-q -d PERFORMANCE` | 未触发 | ⬜ |
