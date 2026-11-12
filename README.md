@@ -14,7 +14,7 @@
 | | |
 | --- | --- |
 | **Version** | v1.0 |
-| **Last updated** | 2026-10-09 |
+| **Last updated** | 2026-11-12 |
 | **Engines** | **vLLM in depth** (commands, tuning, troubleshooting, acceptance); SGLang / TGI / TensorRT-LLM / lmdeploy / Ollama as parameter mapping and selection guidance — not as verified runbooks |
 | **Scale covered** | single node & single GPU up to multi-node multi-GPU (8-GPU servers, dual-node 16-GPU) |
 | **Format** | Markdown — publishable as a repository, exportable to Word |
@@ -96,6 +96,7 @@ This handbook fills that gap.
 | [07 Operations & Troubleshooting](docs/07-troubleshooting.md) | Patrol routines, monitoring and alert thresholds, **6 fault trees**, contingency plans | Ops runbook + contingency plan |
 | [08 Deliverables & Templates](docs/08-templates.md) | Purpose and completion guidance for every deliverable | Delivery document package |
 | [09 Security & Compliance](docs/09-security-compliance.md) | MLPS 2.0 / crypto assessment, access control, logging, SBOM, model licences | Security review pack |
+| [10 PD Disaggregation (Advanced)](docs/10-pd-disaggregation.md) | When to disaggregate (with a measured 18.2× interference case), three topologies (single-node 4+4 / dual-instance / cross-machine), **KV pool over-provisioning pitfall**, engine compatibility matrix, fault domain & 250 s auto-recovery | PD deployment playbook + decision table |
 | [Appendix A — Command Reference](appendix/a-commands.md) | Copy-pasteable commands grouped by scenario | — |
 | [Appendix B — Checklists](appendix/b-checklists.md) | Four printable checklists: survey / deployment / go-live / patrol | — |
 | [Appendix C — Glossary](appendix/c-glossary.md) | Bilingual term list with clarification of commonly confused items | — |
